@@ -5,7 +5,7 @@ import json
 import os
 import pathlib
 
-import requests
+import requests  # type: ignore
 
 import exercism
 
@@ -34,6 +34,6 @@ class Notifier:  # pylint: disable=R0903
 
 
 if __name__ == "__main__":
+    exercism.Exercism.WATCHER_SLEEP_SEC = 200
     e = exercism.Exercism()
-    e.WATCHER_SLEEP_SEC = 200
     e.notification_pusher(Notifier().notify)

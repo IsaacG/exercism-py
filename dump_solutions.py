@@ -7,7 +7,7 @@ import pathlib
 import time
 
 import dotenv
-from . import exercism
+import exercism
 
 
 def dump_solutions_to_mentor():

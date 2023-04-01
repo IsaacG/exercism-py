@@ -12,8 +12,8 @@ import time
 from typing import Any, Callable, Iterable
 
 # External libs
-import requests
-import tenacity
+import requests  # type: ignore
+import tenacity  # type: ignore
 
 
 Notifications = dict[str, Any]
@@ -35,7 +35,7 @@ class Exercism:
         self.session = requests.Session()
         self.session.headers.update({"Authorization": f"Bearer {token}"})
 
-    def request(self, func, *args, sleep=0.5, **kwargs) -> requests.Response:
+    def request(self, func, *args, sleep: float = 0.5, **kwargs) -> requests.Response:
         """Perform an HTTP request with 429 handling."""
         resp = func(*args, **kwargs)
         if "retry-after" in resp.headers:
@@ -55,12 +55,12 @@ class Exercism:
             requests.HTTPError, requests.exceptions.ConnectionError
         )),
     )
-    def get_json_with_retries(self, *args, sleep=0.2, **kwargs) -> object:
+    def get_json_with_retries(self, *args, sleep: float = 0.2, **kwargs) -> dict[str, Any]:
         """Return JSON returns from an HTTP GET. Retry on failure."""
         resp = self.request(self.session.get, *args, sleep=sleep, **kwargs)
         return resp.json()
 
-    def get_all_pages(self, *args, endpoint: str, **kwargs):
+    def get_all_pages(self, *args, endpoint: str, **kwargs) -> list[dict[str, Any]]:
         """Return all pages from a paginated result."""
         params = kwargs.pop("params", {})
         all_data = []
@@ -73,11 +73,11 @@ class Exercism:
                 break
         return all_data
 
-    def post(self, *args, sleep=0.5, **kwargs) -> object:
+    def post(self, *args, sleep: float = 0.5, **kwargs) -> requests.Response:
         """HTTP POST."""
         return self.request(self.session.post, *args, sleep=sleep, **kwargs)
 
-    def patch(self, *args, sleep=0.5, **kwargs) -> object:
+    def patch(self, *args, sleep: float = 0.5, **kwargs) -> requests.Response:
         """HTTP PATCH."""
         return self.request(self.session.patch, *args, sleep=sleep, **kwargs)
 
@@ -145,7 +145,7 @@ class Exercism:
                 callback(result)
             seen_notifications.update(r["uuid"] for r in unseen)
 
-    def streaming_events(self, live: bool):
+    def streaming_events(self, live: bool) -> list[dict[str, Any]]:
         """Return all streaming_events."""
         params = {}
         if live:
@@ -158,7 +158,7 @@ class Exercism:
         all_data.sort(key=lambda x: x["starts_at"])
         return all_data
 
-    def future_streaming_events(self):
+    def future_streaming_events(self) -> list[dict[str, Any]]:
         """Return streaming_events which are in the future."""
         now = datetime.datetime.now(datetime.timezone.utc)
         return [
@@ -166,7 +166,7 @@ class Exercism:
             if i["starts_at"] >= now
         ]
 
-    def mentor_requests(self, track: str):
+    def mentor_requests(self, track: str) -> list[dict[str, Any]]:
         """Return all mentoring requests for one track."""
         params = {"track_slug": track.lower()}
         return self.get_all_pages(endpoint="mentoring/requests", params=params)
@@ -175,7 +175,7 @@ class Exercism:
         """Return all the tracks."""
         return [i["slug"] for i in self.get_json_with_retries(f"{self.API}/tracks")["tracks"]]
 
-    def mentor_discussion_posts(self, uuid: str):
+    def mentor_discussion_posts(self, uuid: str) -> list[dict[str, Any]]:
         """Return mentor discussion posts for one discussion."""
         return self.get_json_with_retries(f"{self.API}/mentoring/discussions/{uuid}/posts")["items"]
 
@@ -185,7 +185,7 @@ class Exercism:
         assert order in ("oldest", "recent", "exercise", "student")
         assert status in ("awaiting_mentor", "awaiting_student", "finished")
 
-        params = {"status": status, "order": order}
+        params: dict[str, str | int] = {"status": status, "order": order}
         resp = self.get_json_with_retries(f"{self.API}/mentoring/discussions", params=params)
         page_count = resp["meta"]["total_pages"]
 
@@ -240,7 +240,7 @@ class Exercism:
 
     def failing_solutions(self, track: None | str = None):
         """Get solutions which are not passing."""
-        params = {}
+        params: dict[str, str | int] = {}
         resp = self.get_json_with_retries(f"{self.API}/solutions", params=params)
         page_count = resp["meta"]["total_pages"]
 
@@ -292,6 +292,7 @@ def nudge():
     print(f"Conversations to nudge: {len(to_nudge)}")
     exercism.finish(to_finish)
     exercism.nudge(to_nudge)
+
 
 if __name__ == "__main__":
     nudge()
