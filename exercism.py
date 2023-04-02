@@ -169,7 +169,7 @@ class Exercism:
     def mentor_requests(self, track: str) -> list[dict[str, Any]]:
         """Return all mentoring requests for one track."""
         params = {"track_slug": track.lower()}
-        return self.get_all_pages(endpoint="mentoring/requests", params=params, sleep=1)
+        return self.get_all_pages(endpoint="mentoring/requests", params=params, sleep=0.5)
 
     def all_tracks(self) -> list[str]:
         """Return all the tracks."""
