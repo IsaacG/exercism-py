@@ -2,6 +2,7 @@
 """Exercism API module."""
 
 # Standard lib
+import asyncio
 import datetime
 import itertools
 import json
@@ -12,6 +13,7 @@ import time
 from typing import Any, Callable, Iterable
 
 # External libs
+import aiohttp  # type: ignore
 import requests  # type: ignore
 import tenacity  # type: ignore
 
@@ -262,6 +264,99 @@ class Exercism:
                 for key in ("exercise", "track"):
                     solutions[-1][key] = solution[key]["slug"]
         return solutions
+
+
+class AsyncExercism:
+    """Exercism API wrapper."""
+
+    API = "https://exercism.org/api/v2"
+
+    def __init__(self):
+        """Iniitialize the wrapper."""
+        # Get the user token from the exercism cli config file.
+        config = pathlib.Path(os.getenv("XDG_CONFIG_HOME")) / "exercism" / "user.json"
+        token = json.loads(config.read_text())["token"]
+        self.headers = {"Authorization": f"Bearer {token}"}
+
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(3),
+        wait=tenacity.wait_exponential(multiplier=2, min=15, max=60),
+        retry=tenacity.retry_if_exception_type((
+            requests.HTTPError, requests.exceptions.ConnectionError
+        )),
+        sleep=asyncio.sleep,  # type: ignore
+    )
+    async def get_json_with_retries(
+        self,
+        *args,
+        endpoint: str,
+        session: aiohttp.ClientSession,
+        sleep: float = 0.2,
+        **kwargs
+    ) -> dict[str, Any]:
+        """Return JSON returns from an HTTP GET. Retry on failure."""
+        if "headers" not in kwargs:
+            kwargs["headers"] = self.headers
+        async with session.get(f"{self.API}/{endpoint}", *args, **kwargs) as resp:
+            if "retry-after" not in resp.headers:
+                resp.raise_for_status()
+                await asyncio.sleep(sleep)
+                return await resp.json()
+
+            delay = int(resp.headers["retry-after"])
+        logging.info("Rate limited. Sleep %d and retry.", delay)
+        await asyncio.sleep(delay + 1)
+        async with session.get(*args, **kwargs) as resp:
+            resp.raise_for_status()
+            await asyncio.sleep(sleep)
+            return await resp.json()
+
+    async def get_all_pages(self, *args, endpoint: str, **kwargs) -> list[dict[str, Any]]:
+        """Return all pages from a paginated result."""
+        params = kwargs.pop("params", {})
+        all_data = []
+        async with aiohttp.ClientSession() as session:
+            for page in itertools.count(start=1):
+                params["page"] = str(page)
+                response = await self.get_json_with_retries(
+                    *args, params=params, endpoint=endpoint, session=session, **kwargs
+                )
+                all_data.extend(response["results"])
+                if response["meta"]["current_page"] >= response["meta"]["total_pages"]:
+                    break
+        return all_data
+
+    async def streaming_events(self, live: bool) -> list[dict[str, Any]]:
+        """Return all streaming_events."""
+        params = {}
+        if live:
+            params["live"] = True
+        all_data = await self.get_all_pages(endpoint="streaming_events", params=params)
+        for i in all_data:
+            for key in ["starts_at", "ends_at"]:
+                parsed = datetime.datetime.strptime(i[key], "%Y-%m-%dT%H:%M:%S.000Z")
+                i[key] = parsed.replace(tzinfo=datetime.timezone.utc)
+        all_data.sort(key=lambda x: x["starts_at"])
+        return all_data
+
+    async def future_streaming_events(self) -> list[dict[str, Any]]:
+        """Return streaming_events which are in the future."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        return [
+            i for i in await self.streaming_events(False)
+            if i["starts_at"] >= now
+        ]
+
+    async def mentor_requests(self, track: str) -> list[dict[str, Any]]:
+        """Return all mentoring requests for one track."""
+        params = {"track_slug": track.lower()}
+        return await self.get_all_pages(endpoint="mentoring/requests", params=params, sleep=0.5)
+
+    async def all_tracks(self) -> list[str]:
+        """Return all the tracks."""
+        async with aiohttp.ClientSession() as session:
+            data = await self.get_json_with_retries(session=session, endpoint="tracks")
+        return [i["slug"] for i in data["tracks"]]
 
 
 def nudge():
