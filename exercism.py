@@ -30,7 +30,7 @@ class Exercism:
     WATCHER_SLEEP_SEC = 15 * 60
 
     def __init__(self):
-        """Iniitialize the wrapper."""
+        """Initialize the wrapper."""
         # Get the user token from the exercism cli config file.
         config = pathlib.Path(os.getenv("XDG_CONFIG_HOME")) / "exercism" / "user.json"
         token = json.loads(config.read_text())["token"]
@@ -235,7 +235,7 @@ class Exercism:
                 "If you are ready to move on, you can free up the mentoring slot by clicking "
                 '"End discussion". '
                 "If you are still working on this, that is great, too! "
-                "If you have any questions or what any help or tips, just let me know!"
+                "If you have any questions or want any help or tips, just let me know!"
             )
         for uuid in uuids:
             self.post(f"{self.API}/mentoring/discussions/{uuid}/posts", data={"content": msg})
@@ -272,7 +272,7 @@ class AsyncExercism:
     API = "https://exercism.org/api/v2"
 
     def __init__(self):
-        """Iniitialize the wrapper."""
+        """Initialize the wrapper."""
         # Get the user token from the exercism cli config file.
         config = pathlib.Path(os.getenv("XDG_CONFIG_HOME")) / "exercism" / "user.json"
         token = json.loads(config.read_text())["token"]
