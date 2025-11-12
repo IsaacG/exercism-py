@@ -298,12 +298,12 @@ class AsyncExercism:
         if "headers" not in kwargs:
             kwargs["headers"] = self.headers
         async with session.get(f"{self.API}/{endpoint}", *args, **kwargs) as resp:
-            if "retry-after" not in resp.headers:
+            if resp.status < 400 or resp.status != 429:
                 resp.raise_for_status()
                 await asyncio.sleep(sleep)
                 return await resp.json()
 
-            delay = int(resp.headers["retry-after"])
+            delay = int(resp.headers.get("retry-after", 2))
         logging.info("Rate limited. Sleep %d and retry.", delay)
         await asyncio.sleep(delay + 1)
         async with session.get(*args, **kwargs) as resp:
